@@ -16,6 +16,8 @@ class Elevator:
         self.action = env.process(self.run())
         self.position = 0
         self.direction = 'up'
+        self.capacity = 1
+        self.passengers = 0
         self.arrived = [env.event() for floor in range(building.floors)]
 
     def run(self):
@@ -39,7 +41,7 @@ class Elevator:
 
 
 class Passenger:
-    def __init__(self, env, room, call_time, name=None, location=None, destination=None):
+    def __init__(self, env, call_time, name=None, location=None, destination=None):
         self.name = names.get_first_name() if name is None else name
         self.location = random.randint(0, building.floors - 1) if location is None else location
         if destination is None:
@@ -55,21 +57,23 @@ class Passenger:
         yield env.timeout(self.call_time)
         print(f'My name is {self.name}. I am on floor {self.location}. I would like to go to floor {self.destination}. The current time is {env.now}')
 
-        floor_arrived = yield elevator.arrived[self.location]
+        while True:
+            yield elevator.arrived[self.location]
+            if elevator.passengers < elevator.capacity:
+                elevator.passengers += 1
+                break
 
-        with room.request() as room_req:
-            yield room_req
-            print(f'{self.name} is getting on the elevator at time {env.now}')
+        print(f'{self.name} is getting on at floor {self.location}')
 
-            floor_arrived = yield elevator.arrived[self.destination]
-            print(f'{self.name} is getting off at floor {self.destination}')
+        yield elevator.arrived[self.destination]
+        elevator.passengers -= 1
+        print(f'{self.name} is getting off at floor {self.destination}')
 
 
 building = Building('264', 8, 1)
-env = simpy.rt.RealtimeEnvironment(factor=0.1)
-room = simpy.Resource(env, capacity=8)
+env = simpy.Environment()
 elevator = Elevator(env)
 for i in range(4):
-    Passenger(env, room, (i+1)*4)
+    Passenger(env, (i+1)*4)
 
-env.run(until=150)
+env.run(until=300)
