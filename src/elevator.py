@@ -12,7 +12,7 @@ class Building:
 
 
 class Elevator:
-    def __init__(self, env, building, name, position=0, direction='up', capacity=8, passengers=0):
+    def __init__(self, env, building, name, position=0, direction='up', capacity=1, passengers=0):
         self.env = env
         self.building = building
         self.name = name
@@ -29,18 +29,19 @@ class Elevator:
             self.arrived[self.position].succeed()
             self.arrived[self.position] = env.event()
             yield self.env.timeout(1)
+            if self.position + 1 == self.building.floors:
+                self.direction = 'down'
+            elif self.position == 0:
+                self.direction = 'up'
+
             if self.direction == 'up':
                 print(f'elevator{self.name} going up at time {self.env.now}.')
                 yield self.env.timeout(5)
                 self.position += 1
-                if self.position + 1 == self.building.floors:
-                    self.direction = 'down'
             elif self.direction == 'down':
                 print(f'elevator{self.name} going down at time {self.env.now}.')
                 yield self.env.timeout(5)
                 self.position -= 1
-                if self.position == 0:
-                    self.direction = 'up'
 
 
 class Passenger:
@@ -65,8 +66,7 @@ class Passenger:
                 elevator.passengers += 1
                 self.elevator = elevator
                 return
-        else:
-            self.wait_for_elevator()
+        yield env.process(self.wait_for_elevator())
 
     def run(self):
         yield self.env.timeout(self.call_time)
